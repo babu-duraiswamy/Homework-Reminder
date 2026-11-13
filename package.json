@@ -1,0 +1,14 @@
+{
+  "name": "homework-notifier",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Checks the school ERP for today's homework and sends it to WhatsApp",
+  "main": "src/notify.js",
+  "scripts": {
+    "start": "node src/notify.js",
+    "dry-run": "DRY_RUN=1 node src/notify.js"
+  },
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
+}

@@ -1,0 +1,150 @@
+Checking homework for 07-11-2026
+Found 0 item(s) for 07-11-2026, 0 not yet sent
+Checking homework for 07-11-2026
+Found 0 item(s) for 07-11-2026, 0 not yet sent
+Checking homework for 07-11-2026
+Found 0 item(s) for 07-11-2026, 0 not yet sent
+Checking homework for 07-11-2026
+Found 0 item(s) for 07-11-2026, 0 not yet sent
+Checking homework for 08-11-2026
+Found 0 item(s) for 08-11-2026, 0 not yet sent
+✅ 12:29 PM, Sun check (08-11-2026): No homework posted for today.
+Checking homework for Sun 08-11-2026
+Found 0 item(s) for 08-11-2026, 0 not yet sent
+✅ Final check, 12:56 PM, Sun (08-11-2026): No homework today.
+Checking homework for Mon 09-11-2026
+page.goto: net::ERR_ABORTED at https://yuvabharathierp.org/site/userlogin
+Call log:
+[2m  - navigating to "https://yuvabharathierp.org/site/userlogin", waiting until "domcontentloaded"[22m
+
+    at login (C:\Users\srten\homework-notifier\src\notify.js:85:14)
+    at main (C:\Users\srten\homework-notifier\src\notify.js:197:11) {
+  log: [
+    '  - navigating to "https://yuvabharathierp.org/site/userlogin", waiting until "domcontentloaded"'
+  ],
+  name: 'Error'
+}
+^CChecking homework for Mon 09-11-2026
+Found 0 item(s) for 09-11-2026, 0 not yet sent
+3:00 PM, Mon: nothing new - staying quiet until the final check.
+Checking homework for Mon 09-11-2026
+Found 0 item(s) for 09-11-2026, 0 not yet sent
+4:00 PM, Mon: nothing new - staying quiet until the final check.
+Checking homework for Mon 09-11-2026
+Found 0 item(s) for 09-11-2026, 0 not yet sent
+5:00 PM, Mon: nothing new - staying quiet until the final check.
+Checking homework for Mon 09-11-2026
+Found 0 item(s) for 09-11-2026, 0 not yet sent
+✅ Final check, 6:00 PM, Mon (09-11-2026): No homework today.
+Checking homework for Tue 10-11-2026
+Found 0 item(s) for 10-11-2026, 0 not yet sent
+2:00 PM, Tue: nothing new - staying quiet until the final check.
+Checking homework for Tue 10-11-2026
+Found 0 item(s) for 10-11-2026, 0 not yet sent
+3:00 PM, Tue: nothing new - staying quiet until the final check.
+Checking homework for Tue 10-11-2026
+Found 0 item(s) for 10-11-2026, 0 not yet sent
+4:00 PM, Tue: nothing new - staying quiet until the final check.
+Checking homework for Tue 10-11-2026
+Found 0 item(s) for 10-11-2026, 0 not yet sent
+5:00 PM, Tue: nothing new - staying quiet until the final check.
+Checking homework for Tue 10-11-2026
+page.waitForURL: Timeout 30000ms exceeded.
+=========================== logs ===========================
+waiting for navigation until "load"
+  navigated to "https://yuvabharathierp.org/user/user/dashboard"
+============================================================
+    at login (C:\Users\srten\homework-notifier\src\notify.js:94:29)
+    at async main (C:\Users\srten\homework-notifier\src\notify.js:199:5) {
+  log: [],
+  name: 'TimeoutError'
+}
+Checking homework for Wed 11-11-2026
+Found 0 item(s) for 11-11-2026, 0 not yet sent
+2:00 PM, Wed: nothing new - staying quiet until the final check.
+Checking homework for Wed 11-11-2026
+Found 0 item(s) for 11-11-2026, 0 not yet sent
+3:00 PM, Wed: nothing new - staying quiet until the final check.
+Checking homework for Wed 11-11-2026
+Found 1 item(s) for 11-11-2026, 1 not yet sent
+- Hindi (L2) (due 11-11-2026): screenshot saved, 0 link(s)
+📚 4:00 PM, Wed: Sent 1 new homework above: Hindi (L2).
+Checking homework for Wed 11-11-2026
+Found 1 item(s) for 11-11-2026, 0 not yet sent
+5:00 PM, Wed: nothing new - staying quiet until the final check.
+Checking homework for Wed 11-11-2026
+Found 1 item(s) for 11-11-2026, 0 not yet sent
+✅ Final check, 6:00 PM, Wed (11-11-2026): Today's homework (1): Hindi (L2).
+Checking homework & circulars for Thu 12-11-2026
+Homework: 0 item(s) for 12-11-2026, 0 not yet sent
+Circulars: 1 item(s) for 12-11-2026, 1 not yet sent
+- SilverZone Olympiad - Mock Reg: 1 screenshot(s), 2 link(s)
+WhatsApp sendImage failed (WhatsApp: (#132001) Template name does not exist in the translation - template name (circular_image) does not exist in en) - sending to Telegram instead
+  link https://powerprep.silverzone.org/ -> 12-11-2026_circular_SilverZone_Olympiad_Mock_Reg_36701_link1.pdf (page-print)
+WhatsApp sendDocument failed (WhatsApp: (#132001) Template name does not exist in the translation - template name (circular_document) does not exist in en) - sending to Telegram instead
+  link https://powerprep.silverzone.org -> 12-11-2026_circular_SilverZone_Olympiad_Mock_Reg_36701_link2.pdf (page-print)
+WhatsApp sendDocument failed (WhatsApp: (#132001) Template name does not exist in the translation - template name (circular_document) does not exist in en) - sending to Telegram instead
+📚 2:01 PM, Thu: New above - Circulars: SilverZone Olympiad - Mock Reg.
+WhatsApp sendText failed (WhatsApp: (#132001) Template name does not exist in the translation - template name (homework_status) does not exist in en) - sending to Telegram instead
+Checking homework & circulars for Thu 12-11-2026
+Homework: 0 item(s) for 12-11-2026, 0 not yet sent
+Circulars: 2 item(s) for 12-11-2026, 1 not yet sent
+- Weekly Menu - 16.11.2026 to 20.11.2026: 2 screenshot(s), 1 link(s)
+WhatsApp sendImage failed (WhatsApp: (#132001) Template name does not exist in the translation - template name (circular_image) does not exist in en) - sending to Telegram instead
+WhatsApp sendImage failed (WhatsApp: (#132001) Template name does not exist in the translation - template name (circular_image) does not exist in en) - sending to Telegram instead
+  link https://docs.google.com/spreadsheets/d/1GYaMNejkoq0ozaaYAdkugyLHx6tr8jIr0aDrzfutQRM/edit?usp=sharing -> 12-11-2026_circular_Weekly_Menu_16_11_2026_to_20_11_2026_36756_link1.pdf (google-export)
+WhatsApp sendDocument failed (WhatsApp: (#132001) Template name does not exist in the translation - template name (circular_document) does not exist in en) - sending to Telegram instead
+📚 3:00 PM, Thu: New above - Circulars: Weekly Menu - 16.11.2026 to 20.11.2026.
+WhatsApp sendText failed (WhatsApp: (#132001) Template name does not exist in the translation - template name (homework_status) does not exist in en) - sending to Telegram instead
+Checking homework & circulars for Thu 12-11-2026
+Attempt 1 failed: page.waitForLoadState: Timeout 30000ms exceeded. - retrying in 1 minute
+Checking homework & circulars for Thu 12-11-2026
+Homework: 1 item(s) for 12-11-2026, 1 not yet sent
+- EVS (due 13-11-2026): 1 screenshot(s), 0 link(s)
+Circulars: 2 item(s) for 12-11-2026, 0 not yet sent
+📚 4:02 PM, Thu: New above - Homework: EVS.
+WhatsApp sendText failed (WhatsApp: (#132001) Template name does not exist in the translation - template name (homework_status) does not exist in en) - sending to Telegram instead
+Checking homework & circulars for Thu 12-11-2026
+Homework: 1 item(s) for 12-11-2026, 0 not yet sent
+Circulars: 2 item(s) for 12-11-2026, 0 not yet sent
+5:01 PM, Thu: nothing new - staying quiet until the final check.
+Checking homework & circulars for Thu 12-11-2026
+Homework: 1 item(s) for 12-11-2026, 0 not yet sent
+Circulars: 2 item(s) for 12-11-2026, 0 not yet sent
+✅ Final check, 6:00 PM, Thu (12-11-2026): Homework (1): EVS. Circulars (2): Weekly Menu - 16.11.2026 to 20.11.2026; SilverZone Olympiad - Mock Reg.
+WhatsApp sendText failed (WhatsApp: (#132001) Template name does not exist in the translation - template name (homework_status) does not exist in en) - sending to Telegram instead
+Checking homework & circulars for Fri 13-11-2026
+Homework: 0 item(s) for 13-11-2026, 0 not yet sent; 1 posted late for 12-11-2026
+- Mathematics (due 13-11-2026): 1 screenshot(s), 0 link(s)
+Circulars: 2 item(s) for 13-11-2026, 2 not yet sent
+- Menstrual Hygiene, Safe Disposal of Sanitary Pads and Sports Attire: 1 screenshot(s), 0 link(s)
+- LogIQids Premier League (LPL) – Children's Day Special: 1 screenshot(s), 1 link(s)
+  link https://www.logiqids.com/get-the-app -> 13-11-2026_circular_LogIQids_Premier_League_LPL_Children_s_D_36911_link1.pdf (page-print)
+📚 2:00 PM, Fri: New above - Circulars: Menstrual Hygiene, Safe Disposal of Sanitary Pads and Sports Attire; LogIQids Premier League (LPL) – Children's Day Special. Posted late on 12-11-2026 (after the final check): homework Mathematics.
+Checking homework & circulars for Fri 13-11-2026
+Homework: 0 item(s) for 13-11-2026, 0 not yet sent
+Circulars: 2 item(s) for 13-11-2026, 0 not yet sent
+3:10 PM, Fri: nothing new - staying quiet until the final check.
+Checking homework & circulars for Fri 13-11-2026
+Homework: 2 item(s) for 13-11-2026, 2 not yet sent
+- EVS (due 17-11-2026): 1 screenshot(s), 0 link(s)
+- EVS (due 14-11-2026): 1 screenshot(s), 0 link(s)
+Circulars: 3 item(s) for 13-11-2026, 1 not yet sent
+- Annual Day Celebrations 2026: Dates and Registration Details: 1 screenshot(s), 0 link(s)
+📚 4:03 PM, Fri: New above - Homework: EVS, EVS. Circulars: Annual Day Celebrations 2026: Dates and Registration Details.
+Checking homework & circulars for Fri 13-11-2026
+Homework: 2 item(s) for 13-11-2026, 0 not yet sent
+Circulars: 4 item(s) for 13-11-2026, 1 not yet sent
+- Schedule and Dress Code for Class Group Photograph Session: 1 screenshot(s), 0 link(s)
+📚 5:00 PM, Fri: New above - Circulars: Schedule and Dress Code for Class Group Photograph Session.
+Checking homework & circulars for Fri 13-11-2026
+Attempt 1 failed: locator.click: Timeout 30000ms exceeded. - retrying in 1 minute
+Checking homework & circulars for Fri 13-11-2026
+Homework: 2 item(s) for 13-11-2026, 0 not yet sent
+Circulars: 4 item(s) for 13-11-2026, 0 not yet sent
+6:02 PM, Fri: nothing new - staying quiet until the final check.
+Checking homework & circulars for Fri 13-11-2026
+Homework: 2 item(s) for 13-11-2026, 0 not yet sent
+Circulars: 5 item(s) for 13-11-2026, 1 not yet sent
+- Subject: Children's Day Celebration Schedule – Saturday, 14th Novem...: 1 screenshot(s), 0 link(s)
+✅ Final check, 9:03 PM, Fri (13-11-2026): Homework (2): EVS, EVS. Circulars (5): Menstrual Hygiene, Safe Disposal of Sanitary Pads and Sports Attire; LogIQids Premier League (LPL) – Children's Day Special; Annual Day Celebrations 2026: Dates and Registration Details; Schedule and Dress Code for Class Group Photograph Session; Subject: Children's Day Celebration Schedule – Saturday, 14th Novem....
