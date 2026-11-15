@@ -5,9 +5,8 @@ on:
     # GitHub runs these in UTC. India time = UTC + 5:30. Each run is at 7 past the hour,
     # because GitHub often delays runs scheduled exactly on the hour.
     - cron: "37 8-11,13 * * 1-6"   # Mon-Sat 2, 3, 4, 5, 7 PM IST  -> homework
-    - cron: "37 12 * * 1-6"        # Mon-Sat 6 PM IST              -> homework + circulars
+    - cron: "37 12 * * *"          # every day 6 PM IST (incl. Sun) -> homework + circulars
     - cron: "37 14 * * 1-6"        # Mon-Sat 8 PM IST              -> homework + circulars + daily summary
-    - cron: "37 16 * * 0"          # Sunday 10 PM IST              -> everything + summary
   workflow_dispatch:
     inputs:
       what:
@@ -76,9 +75,8 @@ jobs:
           # The schedule decides what this run checks; the program just fetches and sends.
           case "$SCHEDULE" in
             "37 8-11,13 * * 1-6") args=(--homework) ;;
-            "37 12 * * 1-6")      args=(--homework --circulars) ;;
+            "37 12 * * *")        args=(--homework --circulars) ;;
             "37 14 * * 1-6")      args=(--homework --circulars --summary) ;;
-            "37 16 * * 0")        args=(--homework --circulars --summary) ;;
             *)  # started by hand from the Actions tab
               case "$WHAT" in
                 homework)  args=(--homework) ;;
