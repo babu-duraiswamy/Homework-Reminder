@@ -1,21 +1,21 @@
-// Checks the school ERP for homework and circulars dated today and sends them to Telegram/WhatsApp.
-// 2-7 PM: messages only for new items. 8 PM final check: always a summary. Late posts are caught the next day.
+// Fetches homework and circulars from the school ERP and sends anything new to WhatsApp
+// (both numbers; anything that fails also goes to Telegram). WHEN it runs is decided by the
+// GitHub schedule (.github/workflows/notifier.yml), which passes what to check:
 //
-// Env (normally from .env):
-//   SCHOOL_USER, SCHOOL_PASS          ERP login
-//   TG_BOT_TOKEN, TG_CHAT_ID          Telegram bot (homework, or error alerts only when SENDER=whatsapp)
-//   SENDER=whatsapp, WA_TOKEN, WA_PHONE_NUMBER_ID, WA_TO   send homework to WhatsApp
-//   DRY_RUN=1      save files to ./out, send nothing, don't update state
-//   HW_DATE=dd-mm-yyyy   check this date instead of today (for testing)
+//   node src/notify.js --homework                 new homework only
+//   node src/notify.js --homework --circulars     homework + circulars
+//   node src/notify.js --summary                  + the daily summary line (also checks homework)
+//   node src/notify.js                            everything + summary
 //
-// Command line (manual checks):
-//   node src/notify.js                 today (what the scheduler runs)
-//   node src/notify.js friday          most recent Friday (any weekday name works)
-//   node src/notify.js yesterday
-//   node src/notify.js 06-11-2026      a specific date (06-11 = this year)
-//   add --test to only save files to ./out without sending to Telegram
-//   add --final to treat a run as the day's final check (always sends a summary)
-// A manual date sends everything for that date and does not affect what the scheduler remembers.
+// Each homework and each circular is sent once, individually (screenshot + linked documents as PDF).
+// Items posted after the previous day's last check are caught the next run, marked "posted late".
+//
+// Manual checks of another day (send everything for that day; the memory is not changed):
+//   node src/notify.js friday | yesterday | 06-11-2026
+// Options: --test (save files to ./out, send nothing), --to=98XXXXXXXX (WhatsApp to that number only)
+//
+// Settings come from .env (on GitHub: the ENV_FILE secret):
+//   SCHOOL_USER, SCHOOL_PASS, SENDER=whatsapp, WA_TOKEN, WA_PHONE_NUMBER_ID, WA_TO, TG_BOT_TOKEN, TG_CHAT_ID
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
@@ -27,6 +27,9 @@ const STATE = path.join(ROOT, 'state', 'sent.json');
 // Load settings from .env on a home computer (existing environment variables win).
 require('./env').load(path.join(ROOT, '.env'));
 const ARGS = process.argv.slice(2).map(a => a.toLowerCase());
+// --to=98XXXXXXXX : send this run's WhatsApp messages only to these number(s) (for testing).
+const TO_ARG = ARGS.find(a => a.startsWith('--to='));
+if (TO_ARG) process.env.WA_TO = TO_ARG.slice(5);
 const DRY = process.env.DRY_RUN === '1' || ARGS.some(a => ['--test', '--dry', '--dry-run'].includes(a));
 
 function todayIST() {
@@ -63,15 +66,6 @@ function weekdayOf(date) {
   return DAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()].slice(0, 3).replace(/^./, c => c.toUpperCase());
 }
 
-// The day's last check: weekdays from 8 PM (incl. catch-up runs after the PC wakes), and weekends.
-function isFinalCheck() {
-  if (ARGS.includes('--final')) return true;
-  const fmt = o => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', ...o }).format(new Date());
-  const hour = Number(fmt({ hour: '2-digit', hour12: false }));
-  const weekend = ['Sat', 'Sun'].includes(fmt({ weekday: 'short' }));
-  return weekend || hour >= 20;
-}
-
 // "12-11-2026" minus n days -> "11-11-2026"
 function daysBefore(date, n) {
   const [d, m, y] = date.split('-').map(Number);
@@ -79,43 +73,54 @@ function daysBefore(date, n) {
   return `${pad(dt.getUTCDate())}-${pad(dt.getUTCMonth() + 1)}-${dt.getUTCFullYear()}`;
 }
 
-// e.g. "3:02 PM, Fri"
-function nowLabelIST() {
-  const fmt = o => new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', ...o }).format(new Date());
-  return `${fmt({ hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()}, ${fmt({ weekday: 'short' })}`;
-}
-
+// Safe file-name part: "Hindi (L2)" -> "Hindi_L2"
 const slug = s => s.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
 
 async function login(page) {
   const { SCHOOL_USER, SCHOOL_PASS } = process.env;
   if (!SCHOOL_USER || !SCHOOL_PASS) throw new Error('SCHOOL_USER and SCHOOL_PASS must be set');
-  await page.goto(`${BASE}/site/userlogin`, { waitUntil: 'domcontentloaded' });
+  // Wait for the things we need (form fields, buttons, links) instead of "page fully loaded":
+  // a slow file on the page (an outside script, font or logo) must not hold everything up.
+  const T = { timeout: 90000 };
+  await page.goto(`${BASE}/site/userlogin`, { waitUntil: 'commit', ...T });
   const form = page.locator('form').first();
+  await form.locator('input[name=username]').waitFor(T);
   await form.locator('input[name=username]').fill(SCHOOL_USER);
   await form.locator('input[name=password]').fill(SCHOOL_PASS);
-  await Promise.all([page.waitForURL(/\/user\//, { timeout: 60000, waitUntil: 'commit' }), form.locator('button[type=submit]').click()]);
-  await page.waitForLoadState('domcontentloaded');
-  // "Select Class/Student" screen: pick the first (default) student.
+  await Promise.all([page.waitForURL(/\/user\//, { waitUntil: 'commit', ...T }), form.locator('button[type=submit]').click()]);
+  // Next is either the "Select Class/Student" screen or the dashboard.
+  await page.locator('input[name=clschg], a[href*="/user/homework"]').first().waitFor(T);
   if (page.url().includes('/choose')) {
-    await page.locator('input[name=clschg]').first().check();
-    await Promise.all([page.waitForURL(/dashboard/, { timeout: 60000, waitUntil: 'commit' }), page.locator('input[type=submit][name=submit]').click()]);
-    await page.waitForLoadState('domcontentloaded');
+    await page.locator('input[name=clschg]').first().check(); // the first (default) student
+    await Promise.all([page.waitForURL(/dashboard/, { waitUntil: 'commit', ...T }), page.locator('input[type=submit][name=submit]').click()]);
+    await page.locator('a[href*="/user/homework"]').first().waitFor(T);
   }
 }
 
-// Outside images/fonts (Google Fonts, a logo from another site) sometimes never finish loading,
-// which stalls page loads and screenshots. Give them 8 seconds, then skip them.
+// Files from other websites (Google Fonts, cdnjs scripts, a logo) can be slow or hang - especially from
+// GitHub's servers - which stalls the school pages. Give images/fonts 8 s and scripts/styles 15 s, then skip them.
 async function skipSlowExtras(page) {
   await page.route(u => !u.hostname.endsWith('yuvabharathierp.org'), async route => {
-    if (!['image', 'font', 'media'].includes(route.request().resourceType())) return route.continue();
+    const type = route.request().resourceType();
+    if (type === 'document') return route.continue(); // e.g. a Google Doc we open on purpose
     try {
-      const response = await route.fetch({ timeout: 8000 });
+      const response = await route.fetch({ timeout: ['image', 'font', 'media'].includes(type) ? 8000 : 15000 });
       await route.fulfill({ response });
     } catch {
+      console.log(`  (skipped slow file: ${route.request().url().slice(0, 90)})`);
       await route.abort().catch(() => {});
     }
   });
+}
+
+// Remembers which files are still loading, so a failure can say what was stuck.
+function trackRequests(page) {
+  const pending = new Map();
+  page.on('request', r => pending.set(r, Date.now()));
+  page.on('requestfinished', r => pending.delete(r));
+  page.on('requestfailed', r => pending.delete(r));
+  return () => [...pending].filter(([, t]) => Date.now() - t > 5000)
+    .map(([r, t]) => `${Math.round((Date.now() - t) / 1000)}s ${r.resourceType()} ${r.url().slice(0, 100)}`);
 }
 
 // The two school sections we watch. Each row's eye icon opens a popup with the full details.
@@ -141,8 +146,8 @@ const SECTIONS = {
 };
 
 async function openSection(page, sec) {
-  await page.goto(`${BASE}${sec.url}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.locator('table tbody tr').first().waitFor({ timeout: 60000 });
+  await page.goto(`${BASE}${sec.url}`, { waitUntil: 'commit', timeout: 90000 });
+  await page.locator('table tbody tr').first().waitFor({ timeout: 90000 });
   // Circulars show 10 per page; ask the table for 50 so a busy day isn't cut off.
   await page.evaluate(() => {
     try { const t = window.jQuery && window.jQuery('table.dataTable').DataTable(); if (t && t.page.len() < 50) t.page.len(50).draw(false); } catch {}
@@ -240,8 +245,8 @@ async function linkToPdf(browser, link, pdfPath) {
   }
 }
 
-// WhatsApp first; if a WhatsApp send fails (template not approved yet, token expired, ...),
-// the same message goes to Telegram so no homework is ever lost.
+// WhatsApp to all numbers; if sending to ANY of them fails (template not approved, number not verified,
+// token expired, ...), the same message also goes to Telegram so nothing is lost.
 function makeSender() {
   const telegram = require('./telegram');
   if (process.env.SENDER !== 'whatsapp') return telegram;
@@ -258,7 +263,7 @@ function makeSender() {
       console.log(`WhatsApp ${method} failed (${err.message}) - sending to Telegram instead`);
       if (!noticeSent) {
         noticeSent = true;
-        await telegram.sendText(`ℹ️ WhatsApp didn't work this time (${err.message.slice(0, 200)}), so this update comes here on Telegram.`);
+        await telegram.sendText(`ℹ️ ${err.message.slice(0, 300)} - so this update also comes here on Telegram.`);
       }
       const r = await telegram[method](...args);
       sender.lastVia = 'telegram';
@@ -272,20 +277,40 @@ function loadState() {
   try { return JSON.parse(fs.readFileSync(STATE, 'utf8')); } catch { return {}; }
 }
 
+// Circulars to ignore, by title (default: the weekly food menu). Override with CIRCULAR_SKIP="menu|canteen" in .env.
+const CIRCULAR_SKIP = new RegExp(process.env.CIRCULAR_SKIP || '\\bmenu\\b', 'i');
+
+// Only document links are opened and sent as PDFs (Google Docs/Sheets/Slides/Drive files, direct PDFs).
+// Everything else - app downloads, websites, videos - is left alone; it stays visible in the screenshot.
+const isDocLink = u => /^https?:\/\/(docs\.google\.com\/(document|spreadsheets|presentation)\/|drive\.google\.com\/(file\/d\/|open\?)|[^?#]+\.pdf(\?|#|$))/i.test(u);
+
 async function main() {
   const dateArg = ARGS.find(a => !a.startsWith('--'));
   const manual = Boolean(dateArg || process.env.HW_DATE);
   const date = dateArg ? parseDateArg(dateArg) : (process.env.HW_DATE || todayIST());
-  console.log(`Checking homework & circulars for ${weekdayOf(date)} ${date}${manual ? ' (manual)' : ''}${DRY ? ' (test - nothing sent)' : ''}`);
   fs.mkdirSync(OUT, { recursive: true });
   fs.mkdirSync(path.dirname(STATE), { recursive: true });
 
-  // Manual checks send everything for that date and leave the scheduler's memory alone.
+  // What to do is decided by the caller (the GitHub schedule):
+  //   --homework  --circulars  --summary   (none given = all three)
+  const want = { homework: ARGS.includes('--homework'), circular: ARGS.includes('--circulars'), summary: ARGS.includes('--summary') };
+  if (!want.homework && !want.circular && !want.summary) want.homework = want.circular = want.summary = true;
+  if (want.summary) want.homework = true; // the summary lists today's homework, so look at it
+  const sections = Object.keys(SECTIONS).filter(k => want[k]);
+  console.log(`Checking ${sections.map(k => SECTIONS[k].name.toLowerCase()).join(' & ')}${want.summary ? ' + summary' : ''} for ${weekdayOf(date)} ${date}` +
+    `${manual ? ' (manual)' : ''}${DRY ? ' (test - nothing sent)' : ''}`);
+
+  // Manual checks send everything for that date and leave the memory (state/sent.json) alone.
   const state = manual ? {} : loadState();
-  // Also look at yesterday: anything posted after yesterday's final check is sent now, marked "posted late".
+  // Also look at yesterday: anything posted after yesterday's last check is sent now, marked "posted late".
   const yesterday = daysBefore(date, 1);
   const sent = { [date]: new Set(state[date] || []), [yesterday]: new Set(state[yesterday] || []) };
-  // Homework + summaries go to WhatsApp when SENDER=whatsapp (falling back to Telegram), otherwise Telegram.
+  const saveState = () => {
+    if (DRY || manual) return;
+    fs.writeFileSync(STATE, JSON.stringify({ [yesterday]: [...sent[yesterday]], [date]: [...sent[date]] }, null, 2) + '\n');
+  };
+
+  // WhatsApp (both numbers); anything that fails there also goes to Telegram.
   const tg = DRY ? null : makeSender();
 
   // Delete local screenshots/PDFs older than 7 days.
@@ -295,93 +320,99 @@ async function main() {
   }
 
   const browser = await chromium.launch();
-  let page;
+  let page, stuck = () => [];
   try {
     page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
+    stuck = trackRequests(page);
     await skipSlowExtras(page);
     await login(page);
     const short = t => (t.length > 70 ? t.slice(0, 67) + '...' : t);
-    const found = {}; // section key -> { todays, pending }
-    for (const [key, sec] of Object.entries(SECTIONS)) {
-      const rows = await readTable(page, sec);
+    const found = { homework: { todays: [], pending: [], late: [] }, circular: { todays: [], pending: [], late: [] } };
+
+    for (const key of sections) {
+      const sec = SECTIONS[key];
+      let rows = await readTable(page, sec);
       if (!rows.length) throw new Error(`${sec.name} table is empty - page layout may have changed`);
+      if (key === 'circular') {
+        const skipped = rows.filter(r => CIRCULAR_SKIP.test(r.label) && (r.date === date || r.date === yesterday));
+        if (skipped.length) console.log(`Skipping ${skipped.length} circular(s): ${skipped.map(r => short(r.label)).join('; ')}`);
+        rows = rows.filter(r => !CIRCULAR_SKIP.test(r.label));
+      }
       const stateKey = r => (key === 'homework' ? r.id : `${key}:${r.id}`);
       const todays = rows.filter(r => r.date === date);
       const pending = todays.filter(r => !sent[date].has(stateKey(r)));
-      // Only when yesterday was recorded by this version (avoids re-sending everything right after an update).
+      // Only when yesterday is in the memory (avoids re-sending everything on the very first run).
       const late = manual || !(yesterday in state) ? [] : rows.filter(r => r.date === yesterday && !sent[yesterday].has(stateKey(r)));
       found[key] = { todays, pending, late };
       console.log(`${sec.name}: ${todays.length} item(s) for ${date}, ${pending.length} not yet sent` +
         (late.length ? `; ${late.length} posted late for ${yesterday}` : ''));
 
+      // Each homework / circular is sent on its own: screenshot(s), then any linked documents as PDF.
       for (const item of [...late, ...pending]) {
         const base = `${item.date}_${key}_${slug(item.label).slice(0, 40)}_${item.id}`;
         const { images, links } = await captureDetails(page, sec, item, base);
-        console.log(`- ${short(item.label)}${item.due ? ` (due ${item.due})` : ''}: ${images.length} screenshot(s), ${links.length} link(s)`);
+        const docs = links.filter(isDocLink);
+        const skippedLinks = links.filter(l => !isDocLink(l));
+        console.log(`- ${short(item.label)}${item.due ? ` (due ${item.due})` : ''}: ${images.length} screenshot(s), ${docs.length} document(s)` +
+          (skippedLinks.length ? `; not opening ${skippedLinks.join(', ')}` : ''));
         const info = { kind: key, subject: item.label, title: item.label, date: item.date, due: item.due };
         for (const [i, img] of images.entries()) {
           if (!DRY) await tg.sendImage(img, { ...info, part: images.length > 1 ? `${i + 1}/${images.length}` : '' });
         }
-        for (const [i, link] of links.entries()) {
+        for (const [i, link] of docs.entries()) {
           const pdf = path.join(OUT, `${base}_link${i + 1}.pdf`);
           const how = await linkToPdf(browser, link, pdf);
-          console.log(`  link ${link} -> ${path.basename(pdf)} (${how})`);
-          const name = `${short(item.label).replace(/[\\/:*?"<>|]/g, '')} ${item.date}${links.length > 1 ? ` (${i + 1})` : ''}.pdf`;
+          console.log(`  ${link} -> ${path.basename(pdf)} (${how})`);
+          const name = `${short(item.label).replace(/[\\/:*?"<>|]/g, '')} ${item.date}${docs.length > 1 ? ` (${i + 1})` : ''}.pdf`;
           if (!DRY) await tg.sendDocument(pdf, name, { ...info, link });
         }
-        if (!DRY && !manual) {
-          sent[item.date].add(stateKey(item));
-          // Keep today's and yesterday's entries; save after each item so a later failure doesn't cause re-sends.
-          fs.writeFileSync(STATE, JSON.stringify({ [yesterday]: [...sent[yesterday]], [date]: [...sent[date]] }, null, 2) + '\n');
-        }
+        // Remember it right away, so a later failure in this run never causes a re-send.
+        if (!DRY && !manual) { sent[item.date].add(stateKey(item)); saveState(); }
       }
     }
+    saveState(); // remember both days even if nothing was sent (tomorrow's late-check needs it)
 
-    // Remember both days on every run (even if nothing was sent), so tomorrow's catch-up knows what yesterday had.
-    if (!DRY && !manual) {
-      fs.writeFileSync(STATE, JSON.stringify({ [yesterday]: [...sent[yesterday]], [date]: [...sent[date]] }, null, 2) + '\n');
-    }
-
-    // Messages:
-    //  - manual check: always a summary
-    //  - 2-7 PM checks: only when something new was sent (silent otherwise, to avoid a false "nothing today")
-    //  - final check (8 PM or later on weekdays, the 10 PM weekend check): always a summary
-    //  - items posted after yesterday's final check are sent at the next check, marked as late
-    const hw = found.homework, ci = found.circular;
+    // Short text lines (no "no circulars" messages):
+    //  - new homework found: one line after the screenshots
+    //  - --summary (8 PM / Sunday): today's homework, or "No homework today"; always sent, also copied to Telegram
+    const hw = found.homework;
     const hwList = l => l.map(r => r.label).join(', ');
-    const ciList = l => l.map(r => short(r.label)).join('; ');
-    const dayList = () => [
-      hw.todays.length ? `Homework (${hw.todays.length}): ${hwList(hw.todays)}.` : 'No homework.',
-      ci.todays.length ? `Circulars (${ci.todays.length}): ${ciList(ci.todays)}.` : 'No circulars.',
-    ].join(' ');
-    const lateList = () => [
-      hw.late.length ? `homework ${hwList(hw.late)}` : '',
-      ci.late.length ? `circulars ${ciList(ci.late)}` : '',
-    ].filter(Boolean).join('; ');
-    const lateNote = () => (hw.late.length + ci.late.length ? ` Posted late on ${yesterday} (after the final check): ${lateList()}.` : '');
-    const newList = () => [
-      hw.pending.length ? `Homework: ${hwList(hw.pending)}.` : '',
-      ci.pending.length ? `Circulars: ${ciList(ci.pending)}.` : '',
-    ].filter(Boolean).join(' ') + lateNote();
-    const anyNew = hw.pending.length + ci.pending.length + hw.late.length + ci.late.length > 0;
+    const dm = d => d.slice(0, 5); // "13-11-2026" -> "13-11"
+    const circToday = manual ? found.circular.todays.length : [...sent[date]].filter(k => k.startsWith('circular:')).length;
+    const lateText = hw.late.length ? `posted late yesterday (${dm(yesterday)}): ${hwList(hw.late)}` : '';
     let status = null;
-    if (manual) {
-      status = `📅 Manual check for ${weekdayOf(date)} ${date}: ` + dayList();
-    } else if (isFinalCheck()) {
-      status = `✅ Final check, ${nowLabelIST()} (${date}): ${dayList()}${lateNote()}`;
-    } else if (anyNew) {
-      status = `📚 ${nowLabelIST()}: New above - ${newList()}`;
+    if (want.summary) {
+      status = `${manual ? '📅' : '✅'} ${weekdayOf(date)} ${dm(date)}${manual ? ' (manual check)' : ''}: ` +
+        (hw.todays.length ? `Homework today (${hw.todays.length}) - ${hwList(hw.todays)}.` : 'No homework today.') +
+        (circToday ? ` Circulars today: ${circToday}.` : '') +
+        (hw.pending.length && !manual ? ' New ones are above.' : '') +
+        (lateText ? ` Also ${lateText} (details above).` : '');
+    } else if (hw.pending.length && hw.late.length) {
+      status = `📚 New homework: ${hwList(hw.pending)}. Also ${lateText}.`;
+    } else if (hw.pending.length) {
+      status = `📚 New homework: ${hwList(hw.pending)} (details above).`;
+    } else if (hw.late.length) {
+      status = `📚 ${lateText.charAt(0).toUpperCase() + lateText.slice(1)} (details above).`;
     }
-    console.log(status || `${nowLabelIST()}: nothing new - staying quiet until the final check.`);
+    console.log(status || 'Nothing new to report.');
     if (status && !DRY) {
       await tg.sendText(status.slice(0, 900));
       // Safety net: WhatsApp can quietly drop a message after accepting it (e.g. marketing limits),
-      // so the daily final summary is always copied to Telegram too - unless it already went there.
-      if (!manual && isFinalCheck() && tg.lastVia === 'whatsapp' && process.env.TG_BOT_TOKEN) {
+      // so the daily summary is always copied to Telegram too - unless it already went there.
+      if (want.summary && !manual && tg.lastVia === 'whatsapp' && process.env.TG_BOT_TOKEN) {
         await require('./telegram').sendText(`${status.slice(0, 3900)} (copy - also sent on WhatsApp)`)
           .catch(e => console.log(`Telegram copy of the summary failed: ${e.message}`));
       }
     }
+  } catch (err) {
+    // Leave clues for the GitHub run page: where it was, what was still loading, and a screenshot.
+    if (page) {
+      console.log(`Failed on page: ${page.url()}`);
+      const st = stuck();
+      if (st.length) console.log(`Still loading when it failed:\n  ${st.join('\n  ')}`);
+      await page.screenshot({ path: path.join(OUT, `failure_${Date.now()}.png`), fullPage: true }).catch(() => {});
+    }
+    throw err;
   } finally {
     // Log out like a person closing the session, so sessions don't pile up on the server.
     if (page) await page.goto(`${BASE}/site/logout`, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
