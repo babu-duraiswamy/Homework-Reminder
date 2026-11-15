@@ -1,7 +1,7 @@
 # Moving homework messages to WhatsApp (free Meta test number)
 
-Homework, circulars and the 8 PM summary go to WhatsApp. ⚠️ error alerts stay on Telegram.
-If a WhatsApp send fails (e.g. templates still in review), that message automatically goes to Telegram instead,
+Homework, circulars and the 8 PM summary go to WhatsApp (all numbers). ⚠️ error alerts stay on Telegram.
+If a WhatsApp send fails for any number (e.g. templates still in review), that message also goes to Telegram,
 so you can finish this setup before Meta approves the templates.
 Takes about 30–45 minutes on a computer. Meta's screens change now and then, so labels may differ slightly.
 

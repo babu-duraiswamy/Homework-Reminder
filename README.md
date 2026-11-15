@@ -1,77 +1,58 @@
 # Homework Notifier
 
-Mon–Fri every hour from 2 to 8 PM, and Sat/Sun at 10 PM, this checks the Yuvabharathi ERP for **today's**
-**homework and circulars** from your own computer and sends them to Telegram (or WhatsApp):
+Fetches **homework** and **circulars** from the Yuvabharathi ERP and sends anything new to WhatsApp
+(both numbers; if WhatsApp fails for any number, a copy goes to Telegram).
 
-- a screenshot of each new homework's or circular's details popup (the 👁 icon), plus any linked Google Doc / Slides / Sheet as a PDF
-  (long circulars are split into parts so they stay readable)
-- each item only once; it logs out after every check
-- **2–7 PM checks stay quiet when there's nothing new** (so an early check never says "nothing today" by mistake)
-- **8 PM final check always sends a summary** (weekends: the 10 PM check):
-  `✅ Final check, 8:00 PM, Tue (10-11-2026): No homework. Circulars (2): PTM Regarding; Children's Day - Dress code.`
-  If this message doesn't arrive, the computer was off/asleep or the scheduler stopped.
-- anything posted **after** the 8 PM check is sent at the next day's first check, marked "posted late"
-- if something breaks (wrong password, site changed), you get a ⚠️ message on Telegram
+**It runs on GitHub Actions — see GITHUB-SETUP.md.** The schedule (India time):
+
+| When | What |
+|---|---|
+| Mon–Sat 2, 3, 4, 5, 7 PM | Homework |
+| Mon–Sat 6 PM | Homework + circulars |
+| Mon–Sat 8 PM | Homework + circulars + daily summary |
+| Sunday 10 PM | Everything + summary |
+
+- Every homework and circular is sent **once**, individually: a screenshot of its details, plus linked
+  Google Docs / Sheets / Slides / PDFs as PDF files.
+- Skipped: weekly food-menu circulars (`CIRCULAR_SKIP` in `.env`), and non-document links (apps, forms, videos).
+- Anything posted after the 8 PM check is sent at the next day's first check, marked "posted late".
+- The 8 PM summary always comes ("No homework today" or the list) and is also copied to Telegram.
 
 Your password stays on your computer in the `.env` file. It is never sent to Telegram.
 
-## Setup (about 15 minutes)
+## Setting it up
+1. **Telegram bot** (for failure copies and ⚠️ alerts) and **WhatsApp** (Meta test number + templates):
+   see **WHATSAPP-SETUP.md**. On a computer with Node.js you can create the settings file with
+   `node src/setup.js` (school login + Telegram) and then `node src/setup-whatsapp.js`.
+2. **GitHub Actions** (runs everything on schedule, computer can be off): see **GITHUB-SETUP.md**.
 
-### 1. Create the Telegram bot (on your phone)
-1. In Telegram, open **@BotFather** (blue tick) → **Start** → send `/newbot`.
-2. Name: e.g. `Abhay Homework`. Username: anything ending in `bot`, e.g. `abhay_hw_bot`.
-3. Copy the **token** it gives you. You'll paste it in step 3.
+## More than one WhatsApp number
+List them in the settings as `WA_TO="91XXXXXXXXXX,91YYYYYYYYYY"` (10-digit numbers also work).
+Each must be verified on Meta (developers.facebook.com → your app → WhatsApp → "Try it out" → recipient list).
+Every message goes to all of them; if any number fails, a copy goes to Telegram.
 
-### 2. Install Node.js
-Download the **LTS** version from <https://nodejs.org> and install with the default options.
+## Checking by hand
+On GitHub: **Actions → School notifier → Run workflow**. Or on a computer with the folder set up:
 
-### 3. Run the setup
-Unzip this folder into your **home folder** (e.g. `C:\Users\<you>\homework-notifier` or
-`/Users/<you>/homework-notifier`). On Mac, avoid Desktop/Documents/Downloads — macOS blocks background
-jobs from reading those.
+    node src/notify.js                         everything for today (+ summary)
+    node src/notify.js --homework              homework only
+    node src/notify.js friday                  everything posted on the last Friday
+    node src/notify.js 06-11-2026 --test       save screenshots to ./out, send nothing
+    node src/notify.js friday --to=98XXXXXXXX  WhatsApp to that number only
 
-**Windows:** right-click `setup-windows.ps1` → **Run with PowerShell**.
-If Windows blocks it, open PowerShell in the folder and run:
-`powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1`
-
-**Mac:** open Terminal and run: `bash ~/homework-notifier/setup-mac.sh`
-
-The setup will:
-1. install what it needs (a few minutes)
-2. ask for the school username, password and bot token (typing is hidden)
-3. ask you to press **Start** on your bot in Telegram, then find your chat automatically
-   (for both parents: add the bot to a family group and say "hi" there before pressing Enter)
-4. send a ✅ test message to Telegram
-5. test the school login without sending anything
-6. schedule it for Mon–Fri every hour 2–8 PM and Sat/Sun at 10 PM
-
-## WhatsApp instead of Telegram
-See **WHATSAPP-SETUP.md** (free Meta test number, no SIM needed). Telegram then only gets ⚠️ error alerts.
-
-## Check another day
-Open a terminal in the folder and run, for example:
-
-    node src/notify.js friday        (most recent Friday; any weekday name works)
-    node src/notify.js yesterday
-    node src/notify.js 06-11-2026    (or 06-11 for this year)
-
-It sends everything posted for that day to Telegram. Add `--test` to only save the screenshots to the
-`out` folder without sending. Manual checks don't change what the scheduler remembers.
+Checking another day sends everything for that day and doesn't change what's remembered as sent.
 
 ## Not getting messages?
-Open a terminal in the folder and run:
+- `node src/doctor.js` — checks settings, Telegram, WhatsApp token and templates, sends test messages.
+- `node src/check-templates.js` — shows whether each WhatsApp template is approved and set up correctly.
+- `node src/test-whatsapp.js 98XXXXXXXX` — sends one test to one number and shows Meta's exact answer.
+- On GitHub: open the failed run → **check** → read the "Check the school app" step.
 
-    node src/doctor.js
-
-It checks Node.js, your settings, the Telegram bot and the schedule, sends a test message,
-and tells you exactly what to fix.
-
-## Good to know
-- The computer must be **on and logged in**. If it was asleep/off at a scheduled time, the check runs when it wakes up,
-  and nothing is sent twice.
-- Activity log: `run.log` in the folder.
-- **Run a check now:** Windows → Task Scheduler → "Homework notifier" → Run. Mac → `launchctl start com.homework.notifier`
-- **Changed the school password?** Run `node src/setup.js` in the folder again.
-- **Stop it:** Windows → Task Scheduler → delete "Homework notifier".
-  Mac → `launchctl unload ~/Library/LaunchAgents/com.homework.notifier.plist`
-- **Test with a past date without sending:** `node src/notify.js 21-08-2026 --test` saves files to `out/`.
+## Settings (`.env`, or the `ENV_FILE` secret on GitHub)
+| Setting | Meaning |
+|---|---|
+| `SCHOOL_USER`, `SCHOOL_PASS` | school ERP login |
+| `SENDER="whatsapp"` | send to WhatsApp (without it, everything goes to Telegram) |
+| `WA_TOKEN`, `WA_PHONE_NUMBER_ID`, `WA_WABA_ID`, `WA_TO`, `WA_TEMPLATE_LANG` | WhatsApp (filled in by `setup-whatsapp.js`) |
+| `TG_BOT_TOKEN`, `TG_CHAT_ID` | Telegram bot and your chat |
+| `CIRCULAR_SKIP` | optional: circular titles to ignore, default `\bmenu\b` |
