@@ -1,0 +1,114 @@
+name: School notifier
+
+on:
+  schedule:
+    # GitHub runs these in UTC. India time = UTC + 5:30. Each run is at 7 past the hour,
+    # because GitHub often delays runs scheduled exactly on the hour.
+    - cron: "37 8-11,13 * * 1-6"   # Mon-Sat 2, 3, 4, 5, 7 PM IST  -> homework
+    - cron: "37 12 * * 1-6"        # Mon-Sat 6 PM IST              -> homework + circulars
+    - cron: "37 14 * * 1-6"        # Mon-Sat 8 PM IST              -> homework + circulars + daily summary
+    - cron: "37 16 * * 0"          # Sunday 10 PM IST              -> everything + summary
+  workflow_dispatch:
+    inputs:
+      what:
+        description: "What to check"
+        type: choice
+        options: [everything, homework, circulars]
+        default: everything
+      date:
+        description: "Check a specific day instead of today (e.g. friday, yesterday, 06-11-2026)"
+        required: false
+      to:
+        description: "Send WhatsApp only to this number (for testing), e.g. 98XXXXXXXX"
+        required: false
+      test:
+        description: "Test only - save pictures, send nothing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # to save state/sent.json (what was already sent) back to the repo
+
+concurrency:
+  group: school-notifier
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Cache browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Write settings from the ENV_FILE secret
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+        run: |
+          if [ -z "$ENV_FILE" ]; then
+            echo "::error::Add the contents of your .env file as a repository secret named ENV_FILE"
+            exit 1
+          fi
+          printf '%s\n' "$ENV_FILE" > .env
+
+      - name: Check the school app
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          WHAT: ${{ inputs.what }}
+          DATE: ${{ inputs.date }}
+          TO: ${{ inputs.to }}
+          TEST: ${{ inputs.test }}
+        run: |
+          # The schedule decides what this run checks; the program just fetches and sends.
+          case "$SCHEDULE" in
+            "37 8-11,13 * * 1-6") args=(--homework) ;;
+            "37 12 * * 1-6")      args=(--homework --circulars) ;;
+            "37 14 * * 1-6")      args=(--homework --circulars --summary) ;;
+            "37 16 * * 0")        args=(--homework --circulars --summary) ;;
+            *)  # started by hand from the Actions tab
+              case "$WHAT" in
+                homework)  args=(--homework) ;;
+                circulars) args=(--circulars) ;;
+                *)         args=(--homework --circulars --summary) ;;
+              esac
+              if [ -n "$DATE" ]; then args+=("$DATE"); fi
+              if [ -n "$TO" ]; then args+=("--to=$TO"); fi
+              if [ "$TEST" = "true" ]; then args+=("--test"); fi
+              ;;
+          esac
+          echo "Running: node src/notify.js ${args[*]}"
+          node src/notify.js "${args[@]}"
+
+      - name: Save what was sent
+        if: always()
+        run: |
+          rm -f .env
+          if [ -f state/sent.json ]; then
+            git config user.name "school-notifier"
+            git config user.email "school-notifier@users.noreply.github.com"
+            git add -f state/sent.json
+            git diff --cached --quiet || { git commit -q -m "Update sent state"; git push -q || { git pull -q --rebase && git push -q; }; }
+          fi
+
+      - name: Keep screenshots for 3 days (for checking)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pictures-${{ github.run_id }}
+          path: out/
+          if-no-files-found: ignore
+          retention-days: 3
