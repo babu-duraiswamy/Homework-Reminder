@@ -305,10 +305,14 @@ async function main() {
   // Also look at yesterday: anything posted after yesterday's last check is sent now, marked "posted late".
   const yesterday = daysBefore(date, 1);
   const sent = { [date]: new Set(state[date] || []), [yesterday]: new Set(state[yesterday] || []) };
+  // The daily summary goes out at most once a day, even if two timers trigger the 8 PM check.
+  let summaryDay = state._summary || null;
   const saveState = () => {
     if (DRY || manual) return;
-    fs.writeFileSync(STATE, JSON.stringify({ [yesterday]: [...sent[yesterday]], [date]: [...sent[date]] }, null, 2) + '\n');
+    fs.writeFileSync(STATE, JSON.stringify({ [yesterday]: [...sent[yesterday]], [date]: [...sent[date]], _summary: summaryDay }, null, 2) + '\n');
   };
+  const doSummary = want.summary && (manual || summaryDay !== date);
+  if (want.summary && !doSummary) console.log('(Today\'s summary was already sent - not sending it again.)');
 
   // WhatsApp (both numbers); anything that fails there also goes to Telegram.
   const tg = DRY ? null : makeSender();
@@ -381,7 +385,7 @@ async function main() {
     const circToday = manual ? found.circular.todays.length : [...sent[date]].filter(k => k.startsWith('circular:')).length;
     const lateText = hw.late.length ? `posted late yesterday (${dm(yesterday)}): ${hwList(hw.late)}` : '';
     let status = null;
-    if (want.summary) {
+    if (doSummary) {
       status = `${manual ? '📅' : '✅'} ${weekdayOf(date)} ${dm(date)}${manual ? ' (manual check)' : ''}: ` +
         (hw.todays.length ? `Homework today (${hw.todays.length}) - ${hwList(hw.todays)}.` : 'No homework today.') +
         (circToday ? ` Circulars today: ${circToday}.` : '') +
@@ -399,11 +403,12 @@ async function main() {
       await tg.sendText(status.slice(0, 900));
       // Safety net: WhatsApp can quietly drop a message after accepting it (e.g. marketing limits),
       // so the daily summary is always copied to Telegram too - unless it already went there.
-      if (want.summary && !manual && tg.lastVia === 'whatsapp' && process.env.TG_BOT_TOKEN) {
+      if (doSummary && !manual && tg.lastVia === 'whatsapp' && process.env.TG_BOT_TOKEN) {
         await require('./telegram').sendText(`${status.slice(0, 3900)} (copy - also sent on WhatsApp)`)
           .catch(e => console.log(`Telegram copy of the summary failed: ${e.message}`));
       }
     }
+    if (doSummary && !DRY && !manual) { summaryDay = date; saveState(); }
   } catch (err) {
     // Leave clues for the GitHub run page: where it was, what was still loading, and a screenshot.
     if (page) {
