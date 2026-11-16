@@ -2,8 +2,9 @@ name: School notifier
 
 on:
   schedule:
-    # GitHub runs these in UTC. India time = UTC + 5:30. Each run is at 7 past the hour,
-    # because GitHub often delays runs scheduled exactly on the hour.
+    # GitHub's own timer (UTC; India = UTC + 5:30). It can be unreliable, so the main timer is
+    # cron-job.org pressing "Run workflow" (see GITHUB-SETUP.md). Running both is safe:
+    # nothing is sent twice and the summary goes out at most once a day.
     - cron: "37 8-11,13 * * 1-6"   # Mon-Sat 2, 3, 4, 5, 7 PM IST  -> homework
     - cron: "37 12 * * *"          # every day 6 PM IST (incl. Sun) -> homework + circulars
     - cron: "37 14 * * 1-6"        # Mon-Sat 8 PM IST              -> homework + circulars + daily summary
@@ -12,7 +13,7 @@ on:
       what:
         description: "What to check"
         type: choice
-        options: [everything, homework, circulars]
+        options: [everything, homework, circulars, homework-and-circulars]
         default: everything
       date:
         description: "Check a specific day instead of today (e.g. friday, yesterday, 06-11-2026)"
@@ -81,6 +82,7 @@ jobs:
               case "$WHAT" in
                 homework)  args=(--homework) ;;
                 circulars) args=(--circulars) ;;
+                homework-and-circulars) args=(--homework --circulars) ;;
                 *)         args=(--homework --circulars --summary) ;;
               esac
               if [ -n "$DATE" ]; then args+=("$DATE"); fi
