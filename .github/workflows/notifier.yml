@@ -1,13 +1,8 @@
 name: School notifier
 
 on:
-  schedule:
-    # GitHub's own timer (UTC; India = UTC + 5:30). It can be unreliable, so the main timer is
-    # cron-job.org pressing "Run workflow" (see GITHUB-SETUP.md). Running both is safe:
-    # nothing is sent twice and the summary goes out at most once a day.
-    - cron: "37 8-11,13 * * 1-6"   # Mon-Sat 2, 3, 4, 5, 7 PM IST  -> homework
-    - cron: "37 12 * * *"          # every day 6 PM IST (incl. Sun) -> homework + circulars
-    - cron: "37 14 * * 1-6"        # Mon-Sat 8 PM IST              -> homework + circulars + daily summary
+  # No GitHub timer: GitHub's scheduled runs arrived hours late. cron-job.org presses
+  # "Run workflow" at exact India times instead (see CRON-JOB-SETUP.md).
   workflow_dispatch:
     inputs:
       what:
